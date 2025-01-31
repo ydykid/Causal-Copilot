@@ -24,7 +24,7 @@ from postprocess.visualization import Visualization
 from postprocess.report_generation import Report_generation
 
 # Global variables
-UPLOAD_FOLDER = "./demo_data"
+# UPLOAD_FOLDER = "./demo_data"
 chat_history = []
 target_path = None
 output_dir = None
@@ -723,9 +723,31 @@ if __name__ == "__main__":
     asyncio.run(main())
 #     pass
 
+from dotenv import load_dotenv
+import os
 from fastapi import FastAPI, File, Response, UploadFile, WebSocket
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+# from pydantic import BaseSettings
+
+# settings
+# class Settings(BaseSettings):
+
+
+load_dotenv()
+
+# path
+# UPLOAD_FOLDER = "./demo_data"
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER')
+# DOWNLOAD_FOLDER = './'
+DOWNLOAD_FOLDER = os.getenv('DOWNLOAD_FOLDER')
+
+# openai
+
+OPENAI_OGANIZATION = os.getenv('OPENAI_OGANIZATION')
+OPENAI_PROJECT = os.getenv('OPENAI_PROJECT')
+OPENAI_APIKEY = os.getenv('OPENAI_APIKEY')
+
 
 app = FastAPI()
 
@@ -887,9 +909,11 @@ async def websocket_workflow(websocket: WebSocket):
             
             # OpenAI 
             # args.organization = ""
+            args.organization = OPENAI_OGANIZATION
             # args.project = ""
+            args.project = OPENAI_PROJECT
             # args.apikey = None
-            args.apikey = ""
+            args.apikey = OPENAI_APIKEY
 
             if 'YES' in message:
                 args.data_mode = 'real'
@@ -1573,7 +1597,6 @@ async def upload_file(file: UploadFile = File(...)):
     }
 
 
-DOWNLOAD_FOLDER = './'
 
 class DownloadFilePostData(BaseModel):
     filepath: str
