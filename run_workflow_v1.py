@@ -25,6 +25,7 @@ from postprocess.report_generation import Report_generation
 
 # Global variables
 # UPLOAD_FOLDER = "./demo_data"
+
 chat_history = []
 target_path = None
 output_dir = None
