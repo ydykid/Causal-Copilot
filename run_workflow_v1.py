@@ -730,6 +730,8 @@ if __name__ == "__main__":
 #     pass
 
 import os
+import shutil
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Response, UploadFile, WebSocket
 from fastapi.staticfiles import StaticFiles
@@ -873,18 +875,90 @@ async def websocket_workflow(websocket: WebSocket):
         message = data['message']
         REQUIRED_INFO['initial_query'] = message
 
+
+        if data['demo']:
+            demo_name = data['demo']
+            if demo_name in DEMO_DATASETS:
+                demo_dataset = DEMO_DATASETS[demo_name]
+                source_path = demo_dataset["path"]
+                date_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                os.makedirs(os.path.join(UPLOAD_FOLDER, date_time, os.path.basename(source_path).replace('.csv', '')),
+                            exist_ok=True)
+
+                target_path = os.path.join(UPLOAD_FOLDER, date_time, os.path.basename(source_path).replace('.csv', ''),
+                                        os.path.basename(source_path))
+                output_dir = os.path.join(UPLOAD_FOLDER, date_time, os.path.basename(source_path).replace('.csv', ''))
+                shutil.copy(source_path, target_path)
+
+
+                REQUIRED_INFO['data_uploaded'] = True
+                REQUIRED_INFO['initial_query'] = True
+
+                message = demo_dataset["query"]
+                # user message
+                response_data = {
+                    "processing": True,
+                    "disable_btn": True,
+                    "data": {
+                        "role": 'user',
+                        "messages": [{
+                            "type": "text",
+                            "content": message
+                        }]
+                    }
+                }
+                await websocket.send_json(response_data) 
+                res = await websocket.receive_text()
+
+                df = pd.read_csv(target_path)
+                # chatbot message
+                response_data = {
+                    "processing": True,
+                    "disable_btn": True,
+                    "data": {
+                        "role": 'chatbot',
+                        "messages": [{
+                            "type": "text",
+                            "content": f"✅ Loaded demo dataset '{demo_name}' with {len(df)} rows and {len(df.columns)} columns."
+                        }]
+                    }
+                }
+                await websocket.send_json(response_data) 
+                res = await websocket.receive_text()
+                print('ok.')
+            else:
+                print('no demo.')
+                response_data = {
+                    "processing": False,
+                    "disable_btn": False,
+                    "data": {
+                        "role": 'chatbot',
+                        "messages": [{
+                            "type": "text",
+                            "content": f"❌ The demo dataset '{demo_name}' is not exists!!!"
+                        }]
+                    }
+                }
+                await websocket.send_json(response_data) 
+                continue
         # data uploaded stat/
-        if data["upload_file"]:
-            REQUIRED_INFO["data_upload"] = True
-            target_path = data["upload_file"]
-            output_dir = os.path.dirname(target_path)
-            print('output_dir:', output_dir)
+        elif data["upload_file"]:
+            if os.path.isfile(data["upload_file"]):
+                REQUIRED_INFO["data_uploaded"] = True
+                target_path = data["upload_file"]
+                output_dir = os.path.dirname(target_path)
+                print('output_dir:', output_dir)
+
+        # elif not data["upload_file"]:
+            # pass
 
         # for status, msg in _workflow(REQUIRED_INFO, data['message']):
         #     print('res:', status, msg)
+        print('ok1.')
 
         # check data_uploaded
-        if not REQUIRED_INFO["data_upload"]:
+        if not REQUIRED_INFO["data_uploaded"]:
+            print('data_uploaded.')
             response_data = {
                 'processing': False,
                 'disable_btn': False,
@@ -903,6 +977,7 @@ async def websocket_workflow(websocket: WebSocket):
         
         # check initial_query
         if not REQUIRED_INFO["initial_query"]:
+            print('initial_query')
             response_data = {
                 "processing": False,
                 "disable_btn": False,
@@ -919,7 +994,7 @@ async def websocket_workflow(websocket: WebSocket):
 
         try:
             # Initialize config and global state
-
+            print('start:')
             config = get_demo_config()
             config.data_file = target_path
             config.initial_query = message
